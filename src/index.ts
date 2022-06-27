@@ -8,13 +8,12 @@ type Opts = Config.InitialOptions;
 
 process.stdout.write("Using Jest config for Docusaurus...\n");
 
-const cwd = process.cwd();
-const swapRootDir = (input: string | string[]): string[] => {
+const swapRootDir = (localPath: string, input: string | string[]): string[] => {
   // Just return everything as an array, even if it's a single string
   if (typeof input === "string") {
     input = [input];
   }
-  return input.map((path) => path.replace(cwd, "<rootDir>"));
+  return input.map((path) => path.replace(localPath, "<rootDir>"));
 };
 
 export const applyConfig = async (inputConfig: Opts): Promise<Opts> => {
@@ -40,7 +39,9 @@ export const applyConfig = async (inputConfig: Opts): Promise<Opts> => {
   return inputConfig;
 };
 
-export const makeConfig = async (): Promise<Opts> => {
+export const makeConfig = async (
+  localPath: string = process.cwd()
+): Promise<Opts> => {
   const props = await load({
     siteDir: process.cwd(),
   });
@@ -65,7 +66,13 @@ export const makeConfig = async (): Promise<Opts> => {
   const aliases = Object.entries(
     webpackConfig.resolve!.alias as Record<string, string | string[]>
   ).reduce((acc, [key, value]) => {
-    acc[`^${key}$`] = swapRootDir(value);
+    // Need to expand some of these as wildcards
+    if (["@generated", "@site"].includes(key)) {
+      key = `${key}/(.*)`;
+      value = `${value}/$1`;
+    }
+
+    acc[`^${key}$`] = swapRootDir(localPath, value);
     return acc;
   }, {});
 
